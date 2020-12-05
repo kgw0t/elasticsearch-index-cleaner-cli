@@ -75,7 +75,7 @@ func toStringSlice(body io.ReadCloser) []string {
 	return strings.Split(b2.String(), "\n")
 }
 
-func deleteIndexesUnsetAliases(c *cli.Context) error {
+func deleteIndicesUnsetAliases(c *cli.Context) error {
 	address := "http://" + host + ":" + port
 	log.Println("connect to " + address)
 
@@ -115,7 +115,7 @@ func main() {
 				Destination: &port,
 			},
 		},
-		Action: deleteIndexesUnsetAliases,
+		Action: deleteIndicesUnsetAliases,
 	}
 
 	err := app.Run(os.Args)
