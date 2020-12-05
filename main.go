@@ -3,16 +3,22 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
+	"os"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
+	"github.com/urfave/cli/v2"
 )
 
-func unique(ss ...[]string) []string {
+// 引数
+var host string
+var port string
+
+func deleteDuplicate(ss ...[]string) []string {
 	m := map[string]int{}
 	for _, s := range ss {
 		for _, v := range s {
@@ -69,21 +75,51 @@ func toStringSlice(body io.ReadCloser) []string {
 	return strings.Split(b2.String(), "\n")
 }
 
-func main() {
-	// elasticsearch client 接続
-	es, _ := elasticsearch.NewDefaultClient()
+func deleteIndexesUnsetAliases(c *cli.Context) error {
+	address := "http://" + host + ":" + port
+	log.Println("connect to " + address)
+
+	cfg := elasticsearch.Config{
+		Addresses: []string{address},
+	}
+	es, _ := elasticsearch.NewClient(cfg)
 
 	indices := getIndices(es)
-	// fmt.Println(indices)
-
 	aliases := getAliases(es)
-	// fmt.Println(aliases)
-
-	deletes := unique(indices, aliases)
-	// fmt.Println(deletes)
+	deletes := deleteDuplicate(indices, aliases)
 
 	for _, d := range deletes {
-		fmt.Println("delete : " + d)
+		log.Println("delete index : " + d)
 		deleteIndex(d, es)
+	}
+
+	return nil
+}
+
+func main() {
+	app := &cli.App{
+		Name: "elasticsearch-index-cleaner-cli",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:        "host",
+				Value:       "localhost",
+				Aliases:     []string{"H"},
+				Usage:       "connect to elasticsearch using `HOST`",
+				Destination: &host,
+			},
+			&cli.StringFlag{
+				Name:        "port",
+				Value:       "9200",
+				Aliases:     []string{"p"},
+				Usage:       "connect to elasticsearch using `PORT`",
+				Destination: &port,
+			},
+		},
+		Action: deleteIndexesUnsetAliases,
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
