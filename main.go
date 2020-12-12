@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
@@ -75,9 +77,34 @@ func toStringSlice(body io.ReadCloser) []string {
 	return strings.Split(b2.String(), "\n")
 }
 
+func isDeleteTargetIndexName(name string, now time.Time) bool {
+	times := strings.Split(name, "-")
+	data := strings.Split(times[len(times)-1], ".")
+	if len(data) != 6 {
+		return false
+	}
+
+	Y, erry := strconv.Atoi(data[0])
+	M, errM := strconv.Atoi(data[1])
+	d, errd := strconv.Atoi(data[2])
+	h, errh := strconv.Atoi(data[3])
+	m, errm := strconv.Atoi(data[4])
+	s, errs := strconv.Atoi(data[5])
+	if erry != nil || errM != nil || errd != nil || errh != nil || errm != nil || errs != nil {
+		return false
+	}
+
+	t := time.Date(Y, time.Month(M), d, h, m, s, 0, time.Local)
+
+	return !t.After(now)
+}
+
 func deleteIndicesUnsetAliases(c *cli.Context) error {
 	address := "http://" + host + ":" + port
-	log.Println("connect to " + address)
+	log.Println("connect to", address)
+
+	now := time.Now()
+	log.Println("delete index created now :", now.String())
 
 	cfg := elasticsearch.Config{
 		Addresses: []string{address},
@@ -89,8 +116,13 @@ func deleteIndicesUnsetAliases(c *cli.Context) error {
 	deletes := deleteDuplicate(indices, aliases)
 
 	for _, d := range deletes {
-		log.Println("delete index : " + d)
-		deleteIndex(d, es)
+		if isDeleteTargetIndexName(d, now) {
+			log.Println("delete index :", d)
+			deleteIndex(d, es)
+		} else {
+			log.Println("non delete target index :", d)
+		}
+
 	}
 
 	return nil
