@@ -103,8 +103,8 @@ func deleteIndicesUnsetAliases(c *cli.Context) error {
 	address := "http://" + host + ":" + port
 	log.Println("connect to", address)
 
-	now := time.Now()
-	log.Println("delete index created now :", now.String())
+	target := time.Now().Add(-24 * time.Hour)
+	log.Println("delete index created target date :", target.String())
 
 	cfg := elasticsearch.Config{
 		Addresses: []string{address},
@@ -116,11 +116,11 @@ func deleteIndicesUnsetAliases(c *cli.Context) error {
 	deletes := deleteDuplicate(indices, aliases)
 
 	for _, d := range deletes {
-		if isDeleteTargetIndexName(d, now) {
+		if isDeleteTargetIndexName(d, target) {
 			log.Println("delete index :", d)
 			deleteIndex(d, es)
 		} else {
-			log.Println("non delete target index :", d)
+			log.Println("not delete target index :", d)
 		}
 
 	}
